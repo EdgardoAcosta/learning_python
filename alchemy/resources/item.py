@@ -1,5 +1,5 @@
 from flask_restful import Resource, reqparse
-from flask_jwt import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt, get_jwt_identity
 
 from models.item import ItemModel
 
@@ -22,7 +22,7 @@ class Item(Resource):
                         help='This fields is required'
                         )
 
-    @jwt_required()
+    @jwt_required
     def get(self, _id):
         item = ItemModel.find_by_id(_id)
         if item:
@@ -30,7 +30,7 @@ class Item(Resource):
 
         return {'message': "Item not found"}, 400
 
-    @jwt_required()
+    @jwt_required
     def post(self, _id):
         request_data = Item.parser.parse_args()
 
@@ -48,8 +48,12 @@ class Item(Resource):
         except Exception:
             return {"message": 'Error creating item'}, 500
 
+    @jwt_required
     def delete(self, _id):
+        claims = get_jwt()
         try:
+            if not claims['is_admin']:
+                return {"message": 'cant access this method'}, 201
             item = ItemModel.find_by_id(_id)
             if item:
                 item.delete_from_db()
@@ -77,9 +81,16 @@ class Item(Resource):
 
 
 class ItemList(Resource):
-    @jwt_required()
+    @jwt_required(optional=True)
     def get(self):
         try:
-            return {'item': [item.json() for item in ItemModel.query.all()]}
+            user_id = get_jwt_identity()
+            items = [item.json() for item in ItemModel.query.all()]
+            if user_id:
+                return {'item': items}
+            return {
+                'item': [item['name'] for item in ItemModel.query.all()],
+                'message': 'More data only for admins'
+            }
         except Exception:
             return {"message": 'Error deleting item'}, 500

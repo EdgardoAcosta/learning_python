@@ -1,2 +1,4 @@
 /ven
 *.db
+.vscode/
+__pycache__/
